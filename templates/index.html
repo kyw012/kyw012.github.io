@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python 網頁鬧鐘</title>
+    <style>
+        /* 🌟 整體樣式 */
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: linear-gradient(to right, #064381, #5385ae);
+            color: white;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1, h2 {
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        /* ⏰ 鬧鐘設定區 */
+        .alarm-container, .world-clock {
+            background: rgba(79, 132, 216, 0.792);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+            width: 300px;
+            margin-bottom: 30px; /* 為兩個區塊之間添加間隔 */
+        }
+
+        .alarm-container h2, .world-clock h2 {
+            font-size: 1.6rem;
+            margin-bottom: 20px;
+        }
+
+        input, select, button {
+            margin-top: 10px;
+            padding: 12px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            width: 98%;
+        }
+
+        input {
+            background: rgba(255, 255, 255, 0.8);
+            text-align: center;
+        }
+
+        /* 🎵 貪睡與設定按鈕 */
+        .btn {
+            background-color: #1b619b;
+            color: white;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 10px;
+            border-radius: 10px;
+        }
+
+        .btn:hover {
+            background-color: #a3c6e5;
+        }
+
+        /* ⏳ 貪睡與關閉按鈕 */
+        #snoozeButton, #stopAlarmButton {
+            display: none;
+        }
+
+        /* 🌍 國際時間 */
+        .world-clock select {
+            background: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+        }
+
+        /* 🔔 鬧鐘狀態 */
+        #alarmStatus {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Python 網頁鬧鐘 ⏰</h1>
+
+    <!-- 國際時間顯示 -->
+    <div class="world-clock">
+        <h2>國際時間</h2>
+        <select id="timezoneSelect" onchange="updateWorldClock()">
+            <option value="Asia/Taipei">台北 (Taiwan)</option>
+            <option value="America/New_York">紐約 (New York)</option>
+            <option value="Europe/London">倫敦 (London)</option>
+            <option value="Asia/Tokyo">東京 (Tokyo)</option>
+        </select>
+        <p id="worldClock">當前時間：</p>
+    </div>
+
+    <!-- 設定鬧鐘 -->
+    <div class="alarm-container">
+        <h2>設定鬧鐘</h2>
+        <input type="time" id="alarmTime">
+        <button class="btn" onclick="setAlarm()">設定鬧鐘</button>
+        <p id="alarmStatus">未設定鬧鐘</p>
+
+        <!-- 貪睡與關閉按鈕 -->
+        <button id="snoozeButton" class="btn" onclick="snoozeAlarm()">貪睡 5 分鐘</button>
+        <button id="stopAlarmButton" class="btn" onclick="stopAlarm()">關閉鬧鐘</button>
+    </div>
+
+    <!-- 鬧鐘音效 -->
+    <audio id="alarmSound" src="{{ url_for('static', filename='alarm.mp3') }}"></audio>
+
+    <script>
+        let alarmTime = null;
+
+        function setAlarm() {
+            alarmTime = document.getElementById("alarmTime").value;
+            fetch("/set_alarm", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ time: alarmTime })
+            }).then(response => response.json())
+              .then(data => {
+                  document.getElementById("alarmStatus").innerText = "鬧鐘設定於 " + data.alarm_time;
+              });
+        }
+
+        function checkAlarm() {
+            fetch("/get_alarm")
+                .then(response => response.json())
+                .then(data => {
+                    let now = new Date().toTimeString().slice(0, 5);
+                    
+                    // 只有當 alarm_active 為 true 且時間匹配時才會響鈴
+                    if (data.alarm_time === now && data.alarm_active) {
+                        document.getElementById("alarmSound").play();
+                        document.getElementById("snoozeButton").style.display = "block";
+                        document.getElementById("stopAlarmButton").style.display = "block";
+                    }
+                });
+        }
+
+        function snoozeAlarm() {
+        // 1️⃣ 停止音檔播放
+        document.getElementById("alarmSound").pause();
+        document.getElementById("alarmSound").currentTime = 0;
+        
+        // 2️⃣ 隱藏按鈕
+        document.getElementById("snoozeButton").style.display = "none";
+        document.getElementById("stopAlarmButton").style.display = "none";
+
+        // 3️⃣ 計算新的鬧鐘時間（+5 分鐘）
+        let now = new Date();
+        now.setMinutes(now.getMinutes() + 5);
+        let newTime = now.toTimeString().slice(0, 5);
+
+        // 4️⃣ 通知後端更新新的鬧鐘時間
+        fetch("/set_alarm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ time: newTime })
+        }).then(response => response.json())
+          .then(data => {
+              document.getElementById("alarmStatus").innerText = "貪睡至 " + data.alarm_time;
+          });
+    }
+        function stopAlarm() {
+            document.getElementById("alarmSound").pause();
+            document.getElementById("alarmSound").currentTime = 0;
+            document.getElementById("snoozeButton").style.display = "none";
+            document.getElementById("stopAlarmButton").style.display = "none";
+            document.getElementById("alarmStatus").innerText = "鬧鐘已關閉";
+
+            // 通知後端不要再播放音檔
+            fetch("/stop_alarm", { method: "POST" });
+        }
+
+        function updateWorldClock() {
+            let timezone = document.getElementById("timezoneSelect").value;
+            fetch("/world_time?timezone=" + timezone)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("worldClock").innerText = "當前時間：" + data.time;
+                });
+        }
+
+        setInterval(checkAlarm, 1000);
+        setInterval(updateWorldClock, 1000);
+    </script>
+</body>
+</html>
