@@ -1,18 +1,20 @@
 from flask import Flask, render_template, request, jsonify
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import mysql.connector
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 app = Flask(__name__)
 
 # MySQL 資料庫連線配置
 db_config = {
-    'host': 'localhost',
-    'user': 'root',  # 預設 XAMPP 使用者
-    'password': '',  # 如果有密碼，請填入
-    'database': 'alarm_clock_db'  # 你的資料庫名稱
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'user': os.getenv('DB_USER', 'root'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'database': os.getenv('DB_NAME', 'alarm_clock_db')
 }
-
 # 初始化資料庫連線
 def get_db_connection():
     return mysql.connector.connect(**db_config)
